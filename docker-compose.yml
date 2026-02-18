@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  gosheet:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gosheet-app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      # Tambahkan env variables di bawah ini atau di aaPanel
+      # - NEXT_PUBLIC_SUPABASE_URL=...
+      # - NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+      # - SUPABASE_SERVICE_ROLE_KEY=...
+      # - GOOGLE_CLIENT_ID=...
+      # - GOOGLE_CLIENT_SECRET=...
+    env_file:
+      - .env.local

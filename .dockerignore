@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+.claude
+.beads
+*.sh
+*.md
+.vercel
+docker-compose.yml
+Dockerfile
