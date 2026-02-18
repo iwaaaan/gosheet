@@ -1,0 +1,14 @@
+# Beads
+.beads/
+
+# Claude
+.claude/
+
+# Environment files
+.env.local
+
+# Node modules
+node_modules/
+
+# Build files
+.next/
