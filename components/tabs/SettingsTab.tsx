@@ -1,15 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { createBrowserClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { deleteProject } from '@/app/dashboard/actions'
+import { updateProjectName } from '@/app/dashboard/[projectId]/actions'
 
 type SettingsTabProps = {
   project: {
     id: string
     name: string
-    spreadsheet_id: string
+    spreadsheetId: string
   }
   onUpdate: () => void
 }
@@ -18,18 +18,16 @@ export default function SettingsTab({ project, onUpdate }: SettingsTabProps) {
   const [name, setName] = useState(project.name)
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const supabase = createBrowserClient()
   const router = useRouter()
 
   const saveName = async () => {
     setIsSaving(true)
-
-    await supabase
-      .from('projects')
-      .update({ name })
-      .eq('id', project.id)
-
-    onUpdate()
+    const result = await updateProjectName(project.id, name)
+    if (result.success) {
+      onUpdate()
+    } else {
+      alert(result.error)
+    }
     setIsSaving(false)
   }
 
@@ -73,7 +71,7 @@ export default function SettingsTab({ project, onUpdate }: SettingsTabProps) {
             </label>
             <input
               type="text"
-              value={project.spreadsheet_id}
+              value={project.spreadsheetId}
               readOnly
               className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-600"
             />

@@ -1,46 +1,39 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createBrowserClient } from '@/lib/supabase/client'
+import { getEndpoints, toggleEndpointMethod } from '@/app/dashboard/[projectId]/actions'
 
 type Endpoint = {
   id: string
-  sheet_name: string
-  is_get_enabled: boolean
-  is_post_enabled: boolean
-  is_put_enabled: boolean
-  is_delete_enabled: boolean
+  sheetName: string
+  isGetEnabled: boolean | null
+  isPostEnabled: boolean | null
+  isPutEnabled: boolean | null
+  isDeleteEnabled: boolean | null
 }
 
 export default function APITab({ projectId }: { projectId: string }) {
   const [endpoints, setEndpoints] = useState<Endpoint[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const supabase = createBrowserClient()
 
   useEffect(() => {
     loadEndpoints()
   }, [projectId])
 
   const loadEndpoints = async () => {
-    const { data } = await supabase
-      .from('endpoints')
-      .select('*')
-      .eq('project_id', projectId)
-      .order('sheet_name')
-
+    setIsLoading(true)
+    const data = await getEndpoints(projectId)
     if (data) {
-      setEndpoints(data)
+      setEndpoints(data as any)
     }
     setIsLoading(false)
   }
 
-  const toggleMethod = async (endpointId: string, method: keyof Endpoint, currentValue: boolean) => {
-    await supabase
-      .from('endpoints')
-      .update({ [method]: !currentValue })
-      .eq('id', endpointId)
-
-    loadEndpoints()
+  const handleToggle = async (endpointId: string, method: string, currentValue: boolean) => {
+    const result = await toggleEndpointMethod(endpointId, method, !currentValue)
+    if (result.success) {
+      loadEndpoints()
+    }
   }
 
   const getApiUrl = (sheetName: string) => {
@@ -72,7 +65,7 @@ export default function APITab({ projectId }: { projectId: string }) {
             <div key={endpoint.id} className="bg-white border rounded-lg p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {endpoint.sheet_name}
+                  {endpoint.sheetName}
                 </h3>
               </div>
 
@@ -83,12 +76,12 @@ export default function APITab({ projectId }: { projectId: string }) {
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    value={getApiUrl(endpoint.sheet_name)}
+                    value={getApiUrl(endpoint.sheetName)}
                     readOnly
                     className="flex-1 px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-sm font-mono"
                   />
                   <button
-                    onClick={() => copyToClipboard(getApiUrl(endpoint.sheet_name))}
+                    onClick={() => copyToClipboard(getApiUrl(endpoint.sheetName))}
                     className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm"
                   >
                     Copy
@@ -102,17 +95,22 @@ export default function APITab({ projectId }: { projectId: string }) {
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {(['is_get_enabled', 'is_post_enabled', 'is_put_enabled', 'is_delete_enabled'] as const).map(method => {
+                    const mappedProp = method === 'is_get_enabled' ? 'isGetEnabled' :
+                      method === 'is_post_enabled' ? 'isPostEnabled' :
+                        method === 'is_put_enabled' ? 'isPutEnabled' : 'isDeleteEnabled';
+
                     const methodName = method.replace('is_', '').replace('_enabled', '').toUpperCase()
+                    const isEnabled = endpoint[mappedProp]
+
                     return (
                       <button
                         key={method}
-                        onClick={() => toggleMethod(endpoint.id, method, endpoint[method])}
+                        onClick={() => handleToggle(endpoint.id, method, !!isEnabled)}
                         className={`
                           px-4 py-2 rounded-md border-2 font-medium text-sm transition-colors
-                          ${
-                            endpoint[method]
-                              ? 'bg-green-50 border-green-500 text-green-700'
-                              : 'bg-gray-50 border-gray-300 text-gray-500'
+                          ${isEnabled
+                            ? 'bg-green-50 border-green-500 text-green-700'
+                            : 'bg-gray-50 border-gray-300 text-gray-500'
                           }
                         `}
                       >

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createBrowserClient } from '@/lib/supabase/client'
+import { getProjectAuthConfig, updateProjectAuthConfig } from '@/app/dashboard/[projectId]/actions'
 
 type AuthType = 'none' | 'basic' | 'bearer'
 
@@ -11,25 +11,20 @@ export default function AuthenticationTab({ projectId }: { projectId: string }) 
   const [password, setPassword] = useState('')
   const [token, setToken] = useState('')
   const [isSaving, setIsSaving] = useState(false)
-  const supabase = createBrowserClient()
 
   useEffect(() => {
     loadAuthConfig()
   }, [projectId])
 
   const loadAuthConfig = async () => {
-    const { data } = await supabase
-      .from('project_auth')
-      .select('*')
-      .eq('project_id', projectId)
-      .single()
-
+    const data = await getProjectAuthConfig(projectId)
     if (data) {
-      setAuthType(data.auth_type as AuthType)
-      if (data.auth_config) {
-        setUsername(data.auth_config.username || '')
-        setPassword(data.auth_config.password || '')
-        setToken(data.auth_config.token || '')
+      setAuthType(data.authType as AuthType)
+      const config = data.authConfig as any
+      if (config) {
+        setUsername(config.username || '')
+        setPassword(config.password || '')
+        setToken(config.token || '')
       }
     }
   }
@@ -44,13 +39,12 @@ export default function AuthenticationTab({ projectId }: { projectId: string }) 
       authConfig = { token }
     }
 
-    await supabase
-      .from('project_auth')
-      .upsert({
-        project_id: projectId,
-        auth_type: authType,
-        auth_config: authConfig,
-      })
+    const result = await updateProjectAuthConfig(projectId, authType, authConfig)
+    if (result.success) {
+      alert('Authentication settings saved')
+    } else {
+      alert(result.error)
+    }
 
     setIsSaving(false)
   }

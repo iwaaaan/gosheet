@@ -1,9 +1,12 @@
-import { getSession } from '@/lib/auth/helpers'
+import { auth } from '@/lib/auth'
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
 export default async function Home() {
-  const session = await getSession()
+  const session = await auth.api.getSession({
+    headers: await headers()
+  })
 
   if (session) {
     redirect('/dashboard')

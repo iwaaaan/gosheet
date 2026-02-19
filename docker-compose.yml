@@ -1,21 +1,37 @@
 version: '3.8'
 
 services:
+  db:
+    image: mariadb:10.11
+    container_name: sheetapi-db
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+      MARIADB_DATABASE: ${DB_NAME:-sheetapi}
+    ports:
+      - "3306:3306"
+    volumes:
+      - sheetapi_data:/var/lib/mysql
+
   gosheet:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: gosheet-app
     restart: always
+    depends_on:
+      - db
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      # Tambahkan env variables di bawah ini atau di aaPanel
-      # - NEXT_PUBLIC_SUPABASE_URL=...
-      # - NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-      # - SUPABASE_SERVICE_ROLE_KEY=...
-      # - GOOGLE_CLIENT_ID=...
-      # - GOOGLE_CLIENT_SECRET=...
+      - DATABASE_URL=mysql://root:${DB_ROOT_PASSWORD:-rootpassword}@db:3306/${DB_NAME:-sheetapi}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:3000}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
     env_file:
       - .env.local
+    volumes:
+      - ./google-service-account.json:/app/google-service-account.json:ro
+
+volumes:
+  sheetapi_data:

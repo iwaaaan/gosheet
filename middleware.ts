@@ -1,26 +1,20 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-export async function middleware(req: NextRequest) {
-  const res = NextResponse.next()
-  const supabase = createMiddlewareClient({ req, res })
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+export async function middleware(request: NextRequest) {
+  const sessionCookie = request.cookies.get("better-auth.session_token");
 
   // Protect dashboard routes
-  if (req.nextUrl.pathname.startsWith('/dashboard') && !session) {
-    return NextResponse.redirect(new URL('/login', req.url))
+  if (request.nextUrl.pathname.startsWith('/dashboard') && !sessionCookie) {
+    return NextResponse.redirect(new URL('/login', request.url))
   }
 
   // Redirect to dashboard if already logged in
-  if (req.nextUrl.pathname === '/login' && session) {
-    return NextResponse.redirect(new URL('/dashboard', req.url))
+  if (request.nextUrl.pathname === '/login' && sessionCookie) {
+    return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
-  return res
+  return NextResponse.next()
 }
 
 export const config = {

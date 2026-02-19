@@ -1,24 +1,50 @@
 'use server'
 
-import { createServerClient } from '@/lib/supabase/server'
+import { db } from '@/db'
+import { projects, endpoints, projectAuth } from '@/db/schema'
+import { auth } from '@/lib/auth'
+import { headers } from 'next/headers'
 import { getSheetNames } from '@/lib/google-sheets'
 import { revalidatePath } from 'next/cache'
+import { eq, and } from 'drizzle-orm'
+
+export async function getProjects() {
+  const session = await auth.api.getSession({
+    headers: await headers()
+  })
+
+  if (!session) {
+    return []
+  }
+
+  const projectsData = await db.query.projects.findMany({
+    where: eq(projects.userId, session.user.id),
+    with: {
+      endpoints: true
+    },
+    orderBy: (projects, { desc }) => [desc(projects.createdAt)]
+  })
+
+  return projectsData.map(p => ({
+    id: p.id,
+    name: p.name,
+    created_at: p.createdAt?.toISOString() || '',
+    endpoint_count: p.endpoints.length
+  }))
+}
 
 export async function createProject(formData: FormData) {
-  const supabase = createServerClient()
+  const session = await auth.api.getSession({
+    headers: await headers()
+  })
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
+  if (!session) {
     return { error: 'Unauthorized' }
   }
 
   const name = formData.get('name') as string
   const spreadsheetUrl = formData.get('spreadsheetUrl') as string
 
-  // Extract spreadsheet ID from URL
   const spreadsheetIdMatch = spreadsheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)
   if (!spreadsheetIdMatch) {
     return { error: 'Invalid Google Sheets URL' }
@@ -26,80 +52,68 @@ export async function createProject(formData: FormData) {
 
   const spreadsheetId = spreadsheetIdMatch[1]
 
-  // Get user's refresh token from session
-  const { data: session } = await supabase.auth.getSession()
-  const refreshToken = session.session?.provider_refresh_token
-
-  if (!refreshToken) {
-    return { error: 'No Google refresh token found. Please re-authenticate.' }
-  }
-
   try {
-    // Get all sheet names from spreadsheet
-    const sheetNames = await getSheetNames(spreadsheetId, refreshToken)
+    const sheetNames = await getSheetNames(spreadsheetId)
 
-    // Create project
-    const { data: project, error: projectError } = await supabase
-      .from('projects')
-      .insert({
-        user_id: user.id,
-        name,
-        spreadsheet_id: spreadsheetId,
-        google_refresh_token: refreshToken,
-      })
-      .select()
-      .single()
+    const projectId = crypto.randomUUID()
 
-    if (projectError) {
-      return { error: projectError.message }
-    }
+    await db.insert(projects).values({
+      id: projectId,
+      userId: session.user.id,
+      name,
+      spreadsheetId,
+    })
 
-    // Create endpoints for each sheet
-    const endpoints = sheetNames.map(sheetName => ({
-      project_id: project.id,
-      sheet_name: sheetName,
-      is_get_enabled: true,
-      is_post_enabled: false,
-      is_put_enabled: false,
-      is_delete_enabled: false,
+    const endpointValues = sheetNames.map(sheetName => ({
+      id: crypto.randomUUID(),
+      projectId: projectId,
+      sheetName: sheetName,
+      isGetEnabled: true,
+      isPostEnabled: false,
+      isPutEnabled: false,
+      isDeleteEnabled: false,
     }))
 
-    await supabase.from('endpoints').insert(endpoints)
+    if (endpointValues.length > 0) {
+      await db.insert(endpoints).values(endpointValues)
+    }
 
-    // Create default auth config (none)
-    await supabase.from('project_auth').insert({
-      project_id: project.id,
-      auth_type: 'none',
+    await db.insert(projectAuth).values({
+      projectId: projectId,
+      authType: 'none',
     })
 
     revalidatePath('/dashboard')
-    return { success: true, projectId: project.id }
+    return { success: true, projectId: projectId }
   } catch (error: any) {
     return { error: error.message || 'Failed to create project' }
   }
 }
 
 export async function deleteProject(projectId: string) {
-  const supabase = createServerClient()
+  const session = await auth.api.getSession({
+    headers: await headers()
+  })
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
+  if (!session) {
     return { error: 'Unauthorized' }
   }
 
-  const { error } = await supabase
-    .from('projects')
-    .delete()
-    .eq('id', projectId)
-    .eq('user_id', user.id)
+  try {
+    // MySQL cascading delete should handle endpoints and projectAuth if defined in DB,
+    // but Drizzle references keep it metadata-only unless push/migration is done with constraints.
+    // I set references with onDelete: 'cascade' in schema.ts
+    await db.delete(projects)
+      .where(
+        and(
+          eq(projects.id, projectId),
+          eq(projects.userId, session.user.id)
+        )
+      )
 
-  if (error) {
+    revalidatePath('/dashboard')
+    return { success: true }
+  } catch (error: any) {
     return { error: error.message }
   }
-
-  revalidatePath('/dashboard')
-  return { success: true }
 }

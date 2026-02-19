@@ -40,6 +40,11 @@ next-env.d.ts
 .claude/
 claude_code_zai_env.sh
 .beads/
+*.exp
+*.json
+!package.json
+!tsconfig.json
+!package-lock.json
 
 # nested repositories
 sheety/

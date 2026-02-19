@@ -1,27 +1,22 @@
 import { google } from 'googleapis'
-import { OAuth2Client } from 'google-auth-library'
 
 /**
- * Create Google Sheets client with user's refresh token
+ * Create Google Sheets client with Service Account
  */
-export function createSheetsClient(refreshToken: string) {
-  const oauth2Client = new OAuth2Client(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET
-  )
+export function createSheetsClient() {
+  const auth = new google.auth.GoogleAuth({
+    keyFile: './google-service-account.json',
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
 
-  oauth2Client.setCredentials({
-    refresh_token: refreshToken,
-  })
-
-  return google.sheets({ version: 'v4', auth: oauth2Client })
+  return google.sheets({ version: 'v4', auth })
 }
 
 /**
  * Get all sheet names from a spreadsheet
  */
-export async function getSheetNames(spreadsheetId: string, refreshToken: string) {
-  const sheets = createSheetsClient(refreshToken)
+export async function getSheetNames(spreadsheetId: string) {
+  const sheets = createSheetsClient()
 
   const response = await sheets.spreadsheets.get({
     spreadsheetId,
@@ -35,10 +30,9 @@ export async function getSheetNames(spreadsheetId: string, refreshToken: string)
  */
 export async function readSheet(
   spreadsheetId: string,
-  sheetName: string,
-  refreshToken: string
+  sheetName: string
 ) {
-  const sheets = createSheetsClient(refreshToken)
+  const sheets = createSheetsClient()
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
@@ -54,10 +48,9 @@ export async function readSheet(
 export async function appendToSheet(
   spreadsheetId: string,
   sheetName: string,
-  values: any[],
-  refreshToken: string
+  values: any[]
 ) {
-  const sheets = createSheetsClient(refreshToken)
+  const sheets = createSheetsClient()
 
   const response = await sheets.spreadsheets.values.append({
     spreadsheetId,
@@ -78,10 +71,9 @@ export async function updateRow(
   spreadsheetId: string,
   sheetName: string,
   rowIndex: number,
-  values: any[],
-  refreshToken: string
+  values: any[]
 ) {
-  const sheets = createSheetsClient(refreshToken)
+  const sheets = createSheetsClient()
 
   const response = await sheets.spreadsheets.values.update({
     spreadsheetId,
@@ -101,10 +93,9 @@ export async function updateRow(
 export async function deleteRow(
   spreadsheetId: string,
   sheetName: string,
-  rowIndex: number,
-  refreshToken: string
+  rowIndex: number
 ) {
-  const sheets = createSheetsClient(refreshToken)
+  const sheets = createSheetsClient()
 
   const response = await sheets.spreadsheets.values.clear({
     spreadsheetId,

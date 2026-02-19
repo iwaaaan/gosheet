@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createBrowserClient } from '@/lib/supabase/client'
 import ProjectCard from '@/components/ProjectCard'
 import NewProjectModal from '@/components/NewProjectModal'
+import { getProjects } from './actions'
 
 type Project = {
   id: string
@@ -16,40 +16,15 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const supabase = createBrowserClient()
 
   useEffect(() => {
     loadProjects()
   }, [])
 
   const loadProjects = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) return
-
-    const { data: projectsData } = await supabase
-      .from('projects')
-      .select(`
-        id,
-        name,
-        created_at,
-        endpoints (count)
-      `)
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-
-    if (projectsData) {
-      const formattedProjects = projectsData.map(p => ({
-        id: p.id,
-        name: p.name,
-        created_at: p.created_at,
-        endpoint_count: (p.endpoints as any)?.[0]?.count || 0,
-      }))
-      setProjects(formattedProjects)
-    }
-
+    setIsLoading(true)
+    const projectsData = await getProjects()
+    setProjects(projectsData)
     setIsLoading(false)
   }
 
