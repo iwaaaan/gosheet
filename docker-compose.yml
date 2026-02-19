@@ -9,7 +9,7 @@ services:
       MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
       MARIADB_DATABASE: ${DB_NAME:-sheetapi}
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - sheetapi_data:/var/lib/mysql
 
